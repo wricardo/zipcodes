@@ -1,7 +1,10 @@
 package zipcodes
 
 import (
+	"io"
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -50,6 +53,92 @@ func TestLoadDataset(t *testing.T) {
 	if (reflect.TypeOf(dataset) != reflect.TypeOf(Zipcodes{})) {
 		t.Errorf("Unexpected response type. Got %v, want %v", reflect.TypeOf(dataset), reflect.TypeOf(Zipcodes{}))
 	}
+}
+
+func TestLoadDatasetReader(t *testing.T) {
+	t.Run("Wrong file format cases", func(t *testing.T) {
+		cases := []struct {
+			Dataset       string
+			ExpectedError string
+		}{
+			{
+				"datasets/wrong_length_dataset.txt",
+				"zipcodes: file line does not have 12 fields",
+			},
+			{
+				"datasets/wrong_lat_dataset.txt",
+				"zipcodes: error while converting WRONG to Latitude",
+			},
+			{
+				"datasets/wrong_lon_dataset.txt",
+				"zipcodes: error while converting WRONG to Longitude",
+			},
+		}
+
+		for _, c := range cases {
+			file, err := os.Open(c.Dataset)
+			if err != nil {
+				t.Errorf("Unexpected error while opening dataset %v", err)
+			}
+			defer file.Close()
+			_, err = LoadDatasetReader(file)
+			if err.Error() != c.ExpectedError {
+				t.Errorf("Unexpected error. Got %s, want %s", err, c.ExpectedError)
+			}
+		}
+	})
+
+	// unexpected readers
+	t.Run("unexpected readers", func(t *testing.T) {
+		cases := []struct {
+			Reader        io.Reader
+			ExpectedError string
+		}{
+			{
+				nil,
+				"zipcodes: unexpected nil reader",
+			},
+			{
+				strings.NewReader("invalid format"),
+				"zipcodes: file line does not have 12 fields",
+			},
+		}
+		for _, c := range cases {
+			_, err := LoadDatasetReader(c.Reader)
+			if err == nil {
+				t.Errorf("Expected error, got nil")
+				continue
+			}
+			if err.Error() != c.ExpectedError {
+				t.Errorf("Unexpected error. Got %s, want %s", err, c.ExpectedError)
+			}
+		}
+	})
+
+	// Valid file format cases
+	t.Run("valid readers - valid_dataset.txt", func(t *testing.T) {
+		file, err := os.Open("datasets/valid_dataset.txt")
+		if err != nil {
+			t.Errorf("Unexpected error while opening dataset %v", err)
+		}
+		defer file.Close()
+		dataset, err := LoadDatasetReader(file)
+		if err != nil {
+			t.Errorf("Unexpected error while initializing struct %v", err)
+		}
+		if (reflect.TypeOf(dataset) != reflect.TypeOf(Zipcodes{})) {
+			t.Errorf("Unexpected response type. Got %v, want %v", reflect.TypeOf(dataset), reflect.TypeOf(Zipcodes{}))
+		}
+	})
+	t.Run("valid readers - empty reader", func(t *testing.T) {
+		dataset, err := LoadDatasetReader(strings.NewReader(""))
+		if err != nil {
+			t.Errorf("Unexpected error while initializing struct %v", err)
+		}
+		if (reflect.TypeOf(dataset) != reflect.TypeOf(Zipcodes{})) {
+			t.Errorf("Unexpected response type. Got %v, want %v", reflect.TypeOf(dataset), reflect.TypeOf(Zipcodes{}))
+		}
+	})
 }
 
 func TestLookup(t *testing.T) {

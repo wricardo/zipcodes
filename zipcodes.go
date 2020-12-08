@@ -4,7 +4,9 @@ package zipcodes
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -167,8 +169,15 @@ func LoadDataset(datasetPath string) (Zipcodes, error) {
 		return Zipcodes{}, fmt.Errorf("zipcodes: error while opening file %v", err)
 	}
 	defer file.Close()
+	return LoadDatasetReader(file)
+}
 
-	scanner := bufio.NewScanner(file)
+// LoadDatasetReader reads and loads the dataset into a map interface
+func LoadDatasetReader(r io.Reader) (Zipcodes, error) {
+	if r == nil {
+		return Zipcodes{}, errors.New("zipcodes: unexpected nil reader")
+	}
+	scanner := bufio.NewScanner(r)
 	zipcodeMap := Zipcodes{DatasetList: make(map[string]ZipCodeLocation)}
 	for scanner.Scan() {
 		splittedLine := strings.Split(scanner.Text(), "\t")
