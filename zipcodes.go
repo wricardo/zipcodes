@@ -21,18 +21,21 @@ const (
 
 // ZipCodeLocation struct represents each line of the dataset
 type ZipCodeLocation struct {
-	ZipCode   string
-	PlaceName string
-	AdminName string
-	Lat       float64
-	Lon       float64
+	ZipCode              string
+	PlaceName            string
+	AdminName            string
+	AbbreviatedAdminName string
+	Lat                  float64
+	Lon                  float64
 }
 
 // Zipcodes contains the whole list of structs representing
 // the zipcode dataset
 type Zipcodes struct {
-	DatasetList    map[string]ZipCodeLocation
-	CityStateToZip map[string][]ZipCodeLocation
+	DatasetList            map[string]ZipCodeLocation
+	CityStateToZip         map[string][]ZipCodeLocation
+	stateFullToAbbreviated map[string]string
+	stateAbbreviatedToFull map[string]string
 }
 
 // New loads the dataset that this packages uses and
@@ -138,9 +141,14 @@ func (zc *Zipcodes) FindZipcodesWithinRadius(location *ZipCodeLocation, maxRadiu
 
 // LookupByCityState list zipcodes in a city
 func (zc *Zipcodes) LookupByCityState(city, state string) []ZipCodeLocation {
-	list, ok := zc.CityStateToZip[state+city]
+	lstate := strings.ToLower(state)
+	list, ok := zc.CityStateToZip[lstate+strings.ToLower(city)]
 	if !ok {
-		return nil
+		lstate = zc.stateAbbreviatedToFull[lstate]
+		list, ok = zc.CityStateToZip[lstate+strings.ToLower(city)]
+		if !ok {
+			return nil
+		}
 	}
 	return list
 }
@@ -188,7 +196,12 @@ func LoadDatasetReader(r io.Reader) (Zipcodes, error) {
 		return Zipcodes{}, errors.New("zipcodes: unexpected nil reader")
 	}
 	scanner := bufio.NewScanner(r)
-	zipcodeMap := Zipcodes{DatasetList: make(map[string]ZipCodeLocation), CityStateToZip: make(map[string][]ZipCodeLocation)}
+	zipcodeMap := Zipcodes{
+		DatasetList:            make(map[string]ZipCodeLocation),
+		CityStateToZip:         make(map[string][]ZipCodeLocation),
+		stateFullToAbbreviated: map[string]string{},
+		stateAbbreviatedToFull: map[string]string{},
+	}
 	for scanner.Scan() {
 		splittedLine := strings.Split(scanner.Text(), "\t")
 		if len(splittedLine) != 12 {
@@ -204,18 +217,25 @@ func LoadDatasetReader(r io.Reader) (Zipcodes, error) {
 		}
 
 		zipcodeMap.DatasetList[splittedLine[1]] = ZipCodeLocation{
-			ZipCode:   splittedLine[1],
-			PlaceName: splittedLine[2],
-			AdminName: splittedLine[3],
-			Lat:       lat,
-			Lon:       lon,
+			ZipCode:              splittedLine[1],
+			PlaceName:            splittedLine[2],
+			AdminName:            splittedLine[3],
+			AbbreviatedAdminName: splittedLine[4],
+			Lat:                  lat,
+			Lon:                  lon,
 		}
 	}
 	for _, v := range zipcodeMap.DatasetList {
-		if zipcodeMap.CityStateToZip[v.AdminName+v.PlaceName] == nil {
-			zipcodeMap.CityStateToZip[v.AdminName+v.PlaceName] = make([]ZipCodeLocation, 0)
+		ladmin := strings.ToLower(v.AdminName)
+		labadmin := strings.ToLower(v.AbbreviatedAdminName)
+
+		key := strings.ToLower(ladmin + v.PlaceName)
+		if zipcodeMap.CityStateToZip[key] == nil {
+			zipcodeMap.CityStateToZip[key] = make([]ZipCodeLocation, 0)
 		}
-		zipcodeMap.CityStateToZip[v.AdminName+v.PlaceName] = append(zipcodeMap.CityStateToZip[v.AdminName+v.PlaceName], v)
+		zipcodeMap.CityStateToZip[key] = append(zipcodeMap.CityStateToZip[key], v)
+		zipcodeMap.stateFullToAbbreviated[ladmin] = labadmin
+		zipcodeMap.stateAbbreviatedToFull[labadmin] = ladmin
 	}
 
 	if err := scanner.Err(); err != nil {

@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 func TestNew(t *testing.T) {
@@ -537,5 +539,44 @@ func TestFindZipcodesWithinRadius(t *testing.T) {
 		if reflect.DeepEqual(list, c.ExpectedList) != true {
 			t.Errorf("FindZipcodesWithinRadius returned an unexpected zipcode list.")
 		}
+	}
+}
+
+func TestLookupByCityState(t *testing.T) {
+	zipcodesDataset, err := New("datasets/valid_dataset.txt")
+	if err != nil {
+		t.Errorf("Unexpected error while initializing struct %v", err)
+	}
+
+	spew.Config.Indent = "\t"
+	spew.Dump(`zipcodesDataset: %#v\n`, zipcodesDataset)
+	found := zipcodesDataset.LookupByCityState("Hamburg Neustadt", "Hamburg")
+	if len(found) == 0 {
+		t.Error("not found for Hamburg Neustadt Hamburg")
+	}
+
+	found = zipcodesDataset.LookupByCityState("Hamburg Neustadt", "HH")
+	if len(found) == 0 {
+		t.Error("not found for Hamburg Neustadt HH")
+	}
+
+	found = zipcodesDataset.LookupByCityState("hamburg neustadt", "hamburg")
+	if len(found) == 0 {
+		t.Error("not found for hamburg neustadt hamburg")
+	}
+
+	found = zipcodesDataset.LookupByCityState("hamburg neustadt", "hh")
+	if len(found) == 0 {
+		t.Error("not found for hamburg neustadt hh")
+	}
+
+	found = zipcodesDataset.LookupByCityState("something", "hh")
+	if len(found) != 0 {
+		t.Error("found for something hh")
+	}
+
+	found = zipcodesDataset.LookupByCityState("hamburg neustadt", "something")
+	if len(found) != 0 {
+		t.Error("found for hamburg neustadt something")
 	}
 }
