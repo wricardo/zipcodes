@@ -31,7 +31,8 @@ type ZipCodeLocation struct {
 // Zipcodes contains the whole list of structs representing
 // the zipcode dataset
 type Zipcodes struct {
-	DatasetList map[string]ZipCodeLocation
+	DatasetList    map[string]ZipCodeLocation
+	CityStateToZip map[string][]ZipCodeLocation
 }
 
 // New loads the dataset that this packages uses and
@@ -135,6 +136,15 @@ func (zc *Zipcodes) FindZipcodesWithinRadius(location *ZipCodeLocation, maxRadiu
 	return zipcodeList
 }
 
+// LookupByCityState list zipcodes in a city
+func (zc *Zipcodes) LookupByCityState(city, state string) []ZipCodeLocation {
+	list, ok := zc.CityStateToZip[state+city]
+	if !ok {
+		return nil
+	}
+	return list
+}
+
 func hsin(t float64) float64 {
 	return math.Pow(math.Sin(t/2), 2)
 }
@@ -178,7 +188,7 @@ func LoadDatasetReader(r io.Reader) (Zipcodes, error) {
 		return Zipcodes{}, errors.New("zipcodes: unexpected nil reader")
 	}
 	scanner := bufio.NewScanner(r)
-	zipcodeMap := Zipcodes{DatasetList: make(map[string]ZipCodeLocation)}
+	zipcodeMap := Zipcodes{DatasetList: make(map[string]ZipCodeLocation), CityStateToZip: make(map[string][]ZipCodeLocation)}
 	for scanner.Scan() {
 		splittedLine := strings.Split(scanner.Text(), "\t")
 		if len(splittedLine) != 12 {
@@ -200,6 +210,12 @@ func LoadDatasetReader(r io.Reader) (Zipcodes, error) {
 			Lat:       lat,
 			Lon:       lon,
 		}
+	}
+	for _, v := range zipcodeMap.DatasetList {
+		if zipcodeMap.CityStateToZip[v.AdminName+v.PlaceName] == nil {
+			zipcodeMap.CityStateToZip[v.AdminName+v.PlaceName] = make([]ZipCodeLocation, 0)
+		}
+		zipcodeMap.CityStateToZip[v.AdminName+v.PlaceName] = append(zipcodeMap.CityStateToZip[v.AdminName+v.PlaceName], v)
 	}
 
 	if err := scanner.Err(); err != nil {
