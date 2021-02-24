@@ -6,8 +6,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 func TestNew(t *testing.T) {
@@ -548,8 +546,6 @@ func TestLookupByCityState(t *testing.T) {
 		t.Errorf("Unexpected error while initializing struct %v", err)
 	}
 
-	spew.Config.Indent = "\t"
-	spew.Dump(`zipcodesDataset: %#v\n`, zipcodesDataset)
 	found := zipcodesDataset.LookupByCityState("Hamburg Neustadt", "Hamburg")
 	if len(found) == 0 {
 		t.Error("not found for Hamburg Neustadt Hamburg")
